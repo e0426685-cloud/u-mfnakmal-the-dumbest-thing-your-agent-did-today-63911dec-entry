@@ -37,6 +37,8 @@ def validate(line: str) -> None:
     if not 1 <= len(line) <= 200:
         raise ValueError(f"entry must be 1-200 characters, got {len(line)}")
     line.encode("utf-8")  # must be valid UTF-8 text
+    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in line):
+        raise ValueError("entry must not contain control characters")
 
 
 def main() -> None:
@@ -45,8 +47,12 @@ def main() -> None:
     with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
         f.write(LINE)
     os.chmod(OUTPUT_PATH, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
-    with open(OUTPUT_PATH, "r", encoding="utf-8") as f:
-        written = f.read()
+    mode = stat.S_IMODE(os.stat(OUTPUT_PATH).st_mode)
+    if mode != 0o644:
+        raise ValueError(f"entry file must be mode 0644, got {oct(mode)}")
+    with open(OUTPUT_PATH, "rb") as f:
+        raw = f.read()
+    written = raw.decode("utf-8")
     validate(written)
     if written != LINE:
         raise ValueError("written entry does not match the line")
